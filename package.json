@@ -1,0 +1,19 @@
+{
+  "name": "keylogger-backend",
+  "version": "1.0.0",
+  "description": "Backend for receiving and displaying keylogger data",
+  "main": "api/index.js",
+  "scripts": {
+    "dev": "node api/index.js",
+    "start": "node api/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "ejs": "^3.1.10",
+    "sqlite3": "^5.1.7",
+    "body-parser": "^1.20.3"
+  },
+  "engines": {
+    "node": ">=18.x"
+  }
+}
