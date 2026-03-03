@@ -7,7 +7,7 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // === Basic security: change this to a strong secret ===
-const SECRET_KEY = 'your-super-secret-key-12345-change-me';  // ← CHANGE THIS NOW!
+const SECRET_KEY = 'Kj#9mP$vQ2xL&8rT!wY5nZ@eF3cA7bG+hM0kU4pR^sD6jNqX1tV*yB';  // ← CHANGE THIS NOW!
 
 // SQLite setup (file will be created automatically)
 const db = new sqlite3.Database('./database.db', (err) => {
